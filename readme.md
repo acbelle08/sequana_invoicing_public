@@ -12,7 +12,7 @@ It consists of a python script called `invoicing.py` and a sqlite3 database call
 # Running `invoicing.py`
 
 ## The sequana_admin conda environment
-You can install the necessary packages to run invoicing.py using the sequana_admin conda environment for which there is a yaml file in the main directory.
+You can install the necessary packages to run invoicing.py using the sequana_admin conda environment for which there is a yml file in the main directory.
 
 To make a new environment from this file and then activate it:
 
