@@ -1,0 +1,13 @@
+name: sequana_admin
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - r
+dependencies:
+  - jinja2
+  - python=3
+  - sqlite
+  - pandas
+  - openpyxl
+  - docxtpl

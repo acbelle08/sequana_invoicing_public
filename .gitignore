@@ -1,0 +1,12 @@
+invoices
+*PPMS_billed_hours.csv
+invoices_*
+db_backup/
+*.csv
+._*
+.vscode
+SequAna_logo.svg
+invoicing.db
+testing.py
+*.docx
+__pycache__

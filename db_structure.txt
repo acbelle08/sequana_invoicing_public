@@ -1,0 +1,121 @@
+This is a plain text file that denotes the structure of the sqlite3 database
+that we are currently using for invoicing program.
+I have laid it out as acutal sqlite3 commands the the initiation
+of each of the tables and the creation of the reference keys.
+
+I have also ordered the tables in the order that the data from the previous database
+structure needs to be loaded into this new db structure.
+
+Represents a user. Each user has a balance.
+CREATE TABLE users (
+            user_id INTEGER PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL UNIQUE,
+            staff_subsidy_percent REAL NOT NULL DEFAULT 0,
+            consumable_subsidy_percent REAL NOT NULL DEFAULT 0
+            );
+
+
+Represents a research project that must either be of type either 'wetlab' or 'bioinf'
+CREATE TABLE projects (
+            project_id INTEGER PRIMARY KEY,
+            project_type REAL NOT NULL,
+            project_title REAL NOT NULL,
+            user_id INTEGER NOT NULL,
+            FOREIGN KEY (user_id)
+                REFERENCES users(user_id)
+                    ON UPDATE RESTRICT
+                    ON DELETE RESTRICT
+            );
+
+Represents an invoice that has or has not been sent to a user
+CREATE TABLE invoices (
+            invoice_id INTEGER PRIMARY KEY,
+            invoice_timestamp TIMESTAMP NOT NULL,
+            first_month TEXT NOT NULL,
+            last_month TEXT NOT NULL,
+            chargeable_account INTEGER NOT NULL,
+            reference_text TEXT,
+            user_id INTEGER NOT NULL,
+            invoice_type TEXT NOT NULL DEFAULT "debit" CHECK (invoice_type in ("debit", "credit")),
+            amount_payable REAL NOT NULL DEFAULT 0,
+            sent BOOLEAN NOT NULL DEFAULT 0 CHECK (sent IN (0, 1)),
+            paid BOOLEAN NOT NULL DEFAULT 0 CHECK (paid IN (0, 1)),
+            FOREIGN KEY (user_id)
+                REFERENCES users(user_id)
+                    ON UPDATE RESTRICT
+                    ON DELETE RESTRICT
+            );
+
+Represents a staff time charge related to a given project
+CREATE TABLE staff_time_charges (
+            charge_id INTEGER PRIMARY KEY,
+            staff_hours REAL NOT NULL,
+            staff_hourly_rate_eur REAL NOT NULL,
+            subsidy_percent REAL NOT NULL,
+            invoice_id INTEGER NOT NULL,
+            project_id INTEGER NOT NULL,
+            FOREIGN KEY (invoice_id)
+                REFERENCES invoices(invoice_id)
+                    ON UPDATE RESTRICT
+                    ON DELETE RESTRICT,
+            FOREIGN KEY (project_id)
+                REFERENCES projects(project_id)
+                    ON UPDATE RESTRICT
+                    ON DELETE RESTRICT
+            );
+
+Represents a consumables charge that is related to a given project
+CREATE TABLE consumable_charges (
+            charge_id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            unit_cost REAL NOT NULL,
+            quantity INTEGER NOT NULL,
+            subsidy_percent REAL NOT NULL DEFAULT 0,
+            date TEXT NOT NULL,
+            invoice_id INTEGER NOT NULL,
+            project_id INTEGER NOT NULL,
+            PPMS_reference TEXT NOT NULL,
+            FOREIGN KEY (invoice_id)
+                REFERENCES invoices(invoice_id)
+                    ON UPDATE RESTRICT
+                    ON DELETE RESTRICT,
+            FOREIGN KEY (project_id)
+                REFERENCES projects(project_id)
+                    ON UPDATE RESTRICT
+                    ON DELETE RESTRICT
+        );
+
+Represents a payment that has been made by a user.
+It is related to an invoice.
+CREATE TABLE payments (
+    payment_id INTEGER PRIMARY KEY,
+    reference_str NOT NULL,
+    date TEXT NOT NULL,
+    invoice_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    FOREIGN KEY (invoice_id)
+        REFERENCES invoices(invoice_id)
+            ON UPDATE RESTRICT
+            ON DELETE RESTRICT
+);
+
+
+
+Represents a debit from a users credit used to pay an invoice.
+CREATE TABLE credit_debit (
+    credit_id INTEGER PRIMARY KEY,
+    amount REAL NOT NULL,
+    debit_invoice_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    FOREIGN KEY (user_id)
+        REFERENCES users(user_id)
+            ON UPDATE RESTRICT
+            ON DELETE RESTRICT,
+    FOREIGN KEY (debit_invoice_id)
+        REFERENCES invoices(invoice_id)
+            ON UPDATE RESTRICT
+            ON DELETE RESTRICT
+);
