@@ -350,7 +350,7 @@ class Invoicing:
             if self._project_exists(project_name=ser["Project name"]):
                 project_id, user_id = self._get_project_id_user_id_from_project(project_name=ser["Project name"])
 
-            # First check to see if there is a project matching the Project name
+            # First check to see if there is an index matching the Project name
                 if self._invoice_exists(user_id=user_id):
                     invoice_id = self._get_invoice_id(user_id=user_id)
                     # Then an invoice exists and it is possible that a consumable charge already exists that we can check for
@@ -620,25 +620,25 @@ class Invoicing:
             if obj_staff_hours == staff_hours:
                 pass
             else:
-                self.cur.execute("UPDATE charges SET staff_hours = :staff_hours WHERE charge_id=:obj_charge_id", {"staff_hours":staff_hours, "obj_charge_id":obj_charge_id})
-                print(f"Modifying staff_hours for charges object already in database: {obj_staff_hours} --> {staff_hours}")
+                self.cur.execute("UPDATE staff_time_charges SET staff_hours = :staff_hours WHERE charge_id=:obj_charge_id", {"staff_hours":staff_hours, "obj_charge_id":obj_charge_id})
+                print(f"Modifying staff_hours for staff_time_charges object already in database: {obj_staff_hours} --> {staff_hours}")
             if obj_staff_hourly_rate_eur == self.staff_hourly_rate_eur:
                 pass
             else:
-                self.cur.execute("UPDATE charges SET staff_hourly_rate_eur = :staff_hourly_rate_eur WHERE charge_id=:obj_charge_id", {"staff_hourly_rate_eur":self.staff_hourly_rate_eur, "obj_charge_id":obj_charge_id})
-                print(f"Modifying staff_hourly_rate_eur for charges object already in database: {obj_staff_hourly_rate_eur} --> {self.staff_hourly_rate_eur}")
+                self.cur.execute("UPDATE staff_time_charges SET staff_hourly_rate_eur = :staff_hourly_rate_eur WHERE charge_id=:obj_charge_id", {"staff_hourly_rate_eur":self.staff_hourly_rate_eur, "obj_charge_id":obj_charge_id})
+                print(f"Modifying staff_hourly_rate_eur for staff_time_charges object already in database: {obj_staff_hourly_rate_eur} --> {self.staff_hourly_rate_eur}")
                 
             if obj_staff_subsidy_percent == self.current_user.staff_subsidy_percent:
                 pass
             else:
-                self.cur.execute("UPDATE charges SET subsidy_percent = :subsidy_percent WHERE charge_id=:obj_charge_id", {"subsidy_percent":self.current_user.staff_subsidy_percent, "obj_charge_id":obj_charge_id})
-                print(f"Modifying subsidy_percent for charges object already in database: {obj_staff_subsidy_percent} --> {self.current_user.staff_subsidy_percent}")
+                self.cur.execute("UPDATE staff_time_charges SET subsidy_percent = :subsidy_percent WHERE charge_id=:obj_charge_id", {"subsidy_percent":self.current_user.staff_subsidy_percent, "obj_charge_id":obj_charge_id})
+                print(f"Modifying subsidy_percent for staff_time_charges object already in database: {obj_staff_subsidy_percent} --> {self.current_user.staff_subsidy_percent}")
             self.charge_ids_related_to_PPMS_invoice.append(obj_charge_id)
             
         else:
-            print(f"\nMaking a charge for the {self.current_project.project_type} project {self.current_project.project_id}: {self.current_project.project_title}")
+            print(f"\nMaking a staff_time_charges for the {self.current_project.project_type} project {self.current_project.project_id}: {self.current_project.project_title}")
             self.cur.execute(
-                        "INSERT INTO charges (staff_hours, staff_hourly_rate_eur, subsidy_percent, invoice_id, project_id) \
+                        "INSERT INTO staff_time_charges (staff_hours, staff_hourly_rate_eur, subsidy_percent, invoice_id, project_id) \
                             VALUES (:staff_hours, :staff_hourly_rate_eur, :subsidy_percent, :invoice_id, :project_id)",
                             {
                                 "staff_hours": staff_hours, "staff_hourly_rate_eur": self.staff_hourly_rate_eur,
@@ -686,7 +686,7 @@ class Invoicing:
         # It will be important that we commit all of the charges in parallel with the new invoice and not individually
         # If we are remaking an invoice, then update the date to the current date.
         self.cur.execute(
-            "SELECT invoice_id, first_month, last_month, invoice_timestamp, chargeable_account, sent FROM invoices WHERE user_id=:user_id AND first_month >=:user_defined_first_month AND first_month <= :user_defined_last_month",
+            "SELECT invoice_id, first_month, last_month, invoice_timestamp, chargeable_account, sent FROM invoices WHERE user_id=:user_id AND invoice_type='debit' AND first_month >=:user_defined_first_month AND first_month <= :user_defined_last_month",
             {"user_id":self.current_user.user_id, "user_defined_first_month":self.first_month, "user_defined_last_month":self.last_month}
             )
 
@@ -953,7 +953,7 @@ class Invoicing:
 
     def _create_consumable_charge(self, ser):
         # We should be able to get the user, project and invoice  or make them  using the project_info only.
-        last_name = ser["Project name"].split(":")[0].split("_")[0]
+        last_name = "_".join(ser["Project name"].split(":")[0].split("_")[:-1]).replace("_", " ")
         
         # Then we need to create the project and the invoice
         self.current_user = self._get_or_make_user_for_invoicing(user_last_name=last_name)
@@ -994,15 +994,16 @@ class Invoicing:
             return False
 
     def _get_project_id_user_id_from_project(self, project_name):
-        project_title = project_name.split(":")[1].strip()
-        self.cur.execute("SELECT project_id, user_id FROM projects WHERE project_title=:project_title", {"project_title": project_title})
+        project_title = ":".join(project_name.split(":")[1:]).strip()
+        project_type = project_name.split(":")[0].split("_")[-1]
+        self.cur.execute("SELECT project_id, user_id FROM projects WHERE project_title=:project_title AND projects.project_type=:project_type", {"project_title": project_title, "project_type": project_type})
         results = self.cur.fetchall()
         return results[0]
 
     def _project_exists(self, project_name):
-        project_title = project_name.split(":")[1].strip()
-        project_type = project_name.split(":")[0].split("_")[1]
-        last_name = project_name.split(":")[0].split("_")[0]
+        project_title = ":".join(project_name.split(":")[1:]).strip()
+        project_type = project_name.split(":")[0].split("_")[-1]
+        last_name = "_".join(project_name.split(":")[0].split("_")[:-1]).replace("_", " ")
         self.cur.execute("SELECT projects.project_id, projects.user_id FROM projects INNER JOIN users ON projects.user_id = users.user_id WHERE projects.project_title=:project_title AND projects.project_type=:project_type AND users.last_name=:last_name", {"project_title": project_title, "project_type": project_type, "last_name": last_name })
         results = self.cur.fetchall()
         if len(results) == 1:

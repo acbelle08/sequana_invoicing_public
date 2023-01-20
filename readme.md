@@ -12,7 +12,7 @@ It consists of a python script called `invoicing.py` and a sqlite3 database call
 # Running `invoicing.py`
 
 ## The sequana_admin conda environment
-You can install the necessary packages to run invoicing.py using the sequana_admin conda environment for which there is a yml file in the main directory.
+You can install the necessary packages to run invoicing.py using the sequana_admin conda environment for which there is a yaml file in the main directory.
 
 To make a new environment from this file and then activate it:
 
@@ -65,7 +65,7 @@ optional arguments:
 For any given command you can see the available arguments using the help argument `-h` e.g.:
 
 ```
-python3 invoicing.py create_invoices -h
+$ python3 invoicing.py create_invoices -h
 usage: sequana create_invoices [-h] --first_month FIRST_MONTH --last_month
                                LAST_MONTH --PPMS_input_staff_hours_csvs
                                PPMS_INPUT_STAFF_HOURS_CSVS
@@ -111,21 +111,22 @@ The standard workflow is to create a set of invoices. This will create a set of 
 
 ## Creating standard invoices with invoicing.py
 
-I use the term standard invoice to differentiate from a credit invoice (see below)
+I use the term standard invoice to differentiate from a credit invoice (see below).
 
 The command used for creating a standard SequAna invoice is `create_invoices`.
 
-There are several required arguments to this command that are either required or that you will normally want to use:
+There are several arguments to this command that are either required or that you will normally want to use:
 
-- `--first_month`: SequAna invoices are generally generated on a monthly basis. So commonly the first month value will be the same as the last. This will result in an invoice for a single month. Otherwise the first month should be the first month that the invoice should cover. It is not possible to generate invoices at a resolution less than a single month.
+- `--first_month`: SequAna invoices are generally generated on a monthly basis. So commonly the first
+-month value will be the same as the last. This will result in an invoice for a single month. Otherwise the first month should be the first month that the invoice should cover. It is not possible to generate invoices at a resolution less than a single month.
 
 - `--last_month`: The last month that should be included in the invoice. This will be the same as first_month if you are producing an invoice for a single month.
 
-- `--PPMS_input_staff_hours_csvs`: This is comma delimited list of csv files output from the PPMS time management system. To output the files, go to 'Reports>Custom Report>Time logged per project per month/year per system' then select the member of staff you wish to output for and click 'run/refresh report'. Then save as a csv. If you wish to invoice for more than one member of staff (this is normal) then you can supply multiple comma separated file paths here.
+- `--PPMS_input_staff_hours_csvs`: This is a comma delimited list of csv files output from the PPMS time management system. To output the files, go to 'Reports>Custom Report>Time logged per project per month/year per system' then select the member of staff you wish to output for and click 'run/refresh report'. Then save as a csv. If you wish to invoice for more than one member of staff (this is normal) then you can supply multiple comma separated file paths here. Remember to only select dates that you are making the invoice for.
 
 - `--PPMS_input_consumables_csv`: To include invoicing for consumables (this is normal) you will also need to output a .csv report from PPMS ('Reports>Custom Report>Order Summary Report'). The path to this csv should be provided as the argument to this flag.
 
-- `--template`: Full path to the template for the invoice. At the time of writing this documentation this was `/home/humebc/sequana_admin/invoices/invoice_templates/20221123_sequana_invoice_template.docx`. This template contains [jinja](https://jinja.palletsprojects.com/en/3.1.x/) fields that will be populated by the python code. If you modify the template you will need to modify the python code equivalently.
+- `--template`: The full path to the template for the invoice. At the time of writing this documentation this was `/home/humebc/sequana_admin/invoices/invoice_templates/20221123_sequana_invoice_template.docx`. This template contains [jinja](https://jinja.palletsprojects.com/en/3.1.x/) fields that will be populated by the python code. If you modify the template you will need to modify the python code equivalently.
 
 - `--output_dir`: Directory path where the invoices should be output to.
 
@@ -156,7 +157,7 @@ The two required inputs are:
 - `--template`: Full path to the credit invoice template. This is currently: `/home/humebc/sequana_admin/invoices/invoice_templates/20220811_SequAna_credit_invoice_template.docx`. This template contains [jinja](https://jinja.palletsprojects.com/en/3.1.x/) fields that will be populated by the python code. If you modify the template you will need to modify the python code equivalently.
 
 ## Setting invoices to sent
-Once an invoice has been created it will be populated in the database with attribute 'sent' and 'paid' which will both be set to false. Once you have sent the invoice to the user, you should set the sent status to true in the database. You do this using the `set_invoices_sent` subcommand:
+Once an invoice has been created (either a standard invoice or a credit invoice) it will be populated in the database with attributes 'sent' and 'paid' which will both be set to false. Once you have sent the invoice to the user, you should set the sent status to true in the database. You do this using the `set_invoices_sent` subcommand:
 
 ```
 $ python3 invoicing.py set_invoices_sent -h
@@ -199,10 +200,10 @@ By default backups of the database are made every time standard invoices are mad
 There are two types of back up made. The first is a copy of the sqlite database
 in sqlite format.
 
-The second is in .xlsx format where every table has been converted to an excel worksheet
+The second is in .xlsx format where every table of the database has been converted to an excel worksheet
 and saved as an excel file. You will find these in `db_backup`.
 
-The sqlite3 database is a simple file that is human readable. As such, if you mess something up, you can simply replace the current database file (`invoicing.db`) with a backup (making sure to change the name of the back up to be `invoicing.db`).
+The sqlite3 database is a file. As such, if you mess something up, you can simply replace the current database file (`invoicing.db`) with a backup (making sure to change the name of the back up to be `invoicing.db`).
 
 ## Interacting with the database
 
