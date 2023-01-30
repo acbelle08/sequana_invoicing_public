@@ -81,6 +81,8 @@ class Invoicing:
         # Set the invoices to paid
         self._set_invoice_to_paid()
 
+        self._back_up_db()
+
         self._output_xlsx_of_database()
 
     def _set_invoice_to_paid(self):
@@ -114,6 +116,8 @@ class Invoicing:
 
         # Set the invoices to sent
         self._set_invoices_to_sent()
+
+        self._back_up_db()
 
         self._output_xlsx_of_database()
         
@@ -182,6 +186,8 @@ class Invoicing:
 
         # Make the credit invoices if they don't already exist
         self._make_credit_invoices()
+
+        self._back_up_db()
 
         self._output_xlsx_of_database()
 
