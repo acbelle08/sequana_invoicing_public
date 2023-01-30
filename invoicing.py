@@ -24,13 +24,14 @@ from projects import Project
 
 class Invoicing:
     def __init__(self):
+        self.backup_date_time_str = str(datetime.datetime.now(timezone.utc)).replace(" ", "T").replace("-","").replace(":","").split(".")[0]
         self.args = self._parse_args()
         
     def _init_db(self):
         self.con = sqlite3.connect('invoicing.db')
         self.cur = self.con.cursor()
 
-    def _output_csv_of_database(self):
+    def _output_xlsx_of_database(self):
         """
         As a fail safe we will output the database to csv and save this in the db_backup
         directory
@@ -41,13 +42,12 @@ class Invoicing:
 
         # Create a writer so that we can write the pandas dataframes to the excel
         # on separate sheets
-        db_timestamp = str(datetime.datetime.now()).split(" ")[0].replace("-", "")
         try:
-            db_csv_path = os.path.join(self.db_backup_dir, f'{db_timestamp}_db_backup.xlsx')
+            db_csv_path = os.path.join(self.db_backup_dir, f'{self.backup_date_time_str}_db_backup.xlsx')
         except AttributeError:
             if not os.path.exists("db_backup"):
                 os.makedirs("db_backup")
-            db_csv_path = os.path.join("db_backup", f'{db_timestamp}_db_backup.xlsx')
+            db_csv_path = os.path.join("db_backup", f'{self.backup_date_time_str}_db_backup.xlsx')
         
         with pd.ExcelWriter(db_csv_path, engine='openpyxl') as writer:
 
@@ -81,7 +81,7 @@ class Invoicing:
         # Set the invoices to paid
         self._set_invoice_to_paid()
 
-        self._output_csv_of_database()
+        self._output_xlsx_of_database()
 
     def _set_invoice_to_paid(self):
         for ind, ser in self.credit_df.iterrows():
@@ -115,7 +115,7 @@ class Invoicing:
         # Set the invoices to sent
         self._set_invoices_to_sent()
 
-        self._output_csv_of_database()
+        self._output_xlsx_of_database()
         
     def _set_invoices_to_sent(self):
         for ind, ser in self.credit_df.iterrows():
@@ -183,7 +183,7 @@ class Invoicing:
         # Make the credit invoices if they don't already exist
         self._make_credit_invoices()
 
-        self._output_csv_of_database()
+        self._output_xlsx_of_database()
 
     def _do_credit_invoice_csv_qc(self):
         c_inv_df = pd.read_csv(self.args.input)
@@ -327,14 +327,13 @@ class Invoicing:
 
         self._back_up_db()
 
-        self._output_csv_of_database()
+        self._output_xlsx_of_database()
 
     def _back_up_db(self):
         """
         Back up the database by simply copying the current invoices.db file into the specified db_backup directory
         """
-        dt = str(datetime.datetime.now(timezone.utc)).replace(" ", "T").replace("-","").replace(":","").split(".")[0]
-        backup_db_path = os.path.join(self.db_backup_dir, f'{dt}_db_backup_invoicing.db')
+        backup_db_path = os.path.join(self.db_backup_dir, f'{self.backup_date_time_str}_db_backup_invoicing.db')
         print(f"\n\nBacking up invoicing.db to {backup_db_path}")
         shutil.copyfile('invoicing.db', backup_db_path)
 
