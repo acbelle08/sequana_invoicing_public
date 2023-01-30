@@ -43,7 +43,7 @@ class Invoicing:
         # Create a writer so that we can write the pandas dataframes to the excel
         # on separate sheets
         try:
-            db_csv_path = os.path.join(self.db_backup_dir, f'{self.backup_date_time_str}_db_backup.xlsx')
+            db_csv_path = os.path.join(self.args.db_backup_dir, f'{self.backup_date_time_str}_db_backup.xlsx')
         except AttributeError:
             if not os.path.exists("db_backup"):
                 os.makedirs("db_backup")
@@ -54,7 +54,9 @@ class Invoicing:
             # Make a dataframe from each of the tables in the sqlite database
             for table in tables:
                 df = pd.read_sql_query(f"SELECT * FROM {table}", self.con)
-                df.to_excel(writer, sheet_name=f'{table}')
+                df.to_excel(writer, sheet_name=f'{table}', index=False)
+        
+        print(f"\n\nBacking up invoicing.db to {db_csv_path}")
 
     def _make_new_user(self):
         self._init_db()
@@ -72,11 +74,11 @@ class Invoicing:
         """
         self._init_db()
     
-        # Get a dataframe where each row is a credit invoice to be created.
-        self.credit_df = self._do_credit_invoice_csv_qc()
+        # Get a dataframe where each row is a an invoice to be set to paid.
+        self.invoice_df = self._do_invoices_input_csv_qc(required_cols=["user_email", "amount_payable", "invoice_id"])
 
         # Check that all credit invoices listed in the df exist
-        self._check_that_all_invoices_in_credit_input_df_exist_sent()
+        self._check_that_all_invoices_in_invoices_input_df_exist_sent()
 
         # Set the invoices to paid
         self._set_invoice_to_paid()
@@ -86,18 +88,9 @@ class Invoicing:
         self._output_xlsx_of_database()
 
     def _set_invoice_to_paid(self):
-        for ind, ser in self.credit_df.iterrows():
-            self.cur.execute(
-                    "select invoice_id from invoices inner join users on \
-                    invoices.user_id=users.user_id where \
-                    sent=:sent and \
-                    paid=:paid and users.email=:email and \
-                    invoices.amount_payable=:amount_payable", 
-                    {"sent":True, "paid":False, "email":ser["user_email"], "amount_payable": ser["amount_payable"]}
-                    )
-            invoice_id = self.cur.fetchone()[0]
-            invoice = Invoice(invoice_id=invoice_id, con=self.con)
-            self.cur.execute("update invoices set paid=:paid where invoice_id=:invoice_id", {"paid": True, "invoice_id": invoice_id})
+        for ind, ser in self.invoice_df.iterrows():
+            invoice = Invoice(invoice_id=ser["invoice_id"], con=self.con)
+            self.cur.execute("update invoices set paid=:paid where invoice_id=:invoice_id", {"paid": True, "invoice_id": invoice.invoice_id})
             self.con.commit()
             print(f"Invoice {invoice.invoice_id} ({invoice.reference_text}) set to paid")
 
@@ -109,10 +102,10 @@ class Invoicing:
         self._init_db()
 
         # Get a dataframe where each row is a credit invoice to be created.
-        self.credit_df = self._do_credit_invoice_csv_qc()
+        self.invoice_df = self._do_invoices_input_csv_qc(required_cols=["user_email", "amount_payable", "invoice_id"])
 
         # Check that all credit invoices listed in the df exist
-        self._check_that_all_invoices_in_credit_input_df_exist_not_sent()
+        self._check_that_all_invoices_in_invoices_input_df_exist_not_sent()
 
         # Set the invoices to sent
         self._set_invoices_to_sent()
@@ -122,56 +115,39 @@ class Invoicing:
         self._output_xlsx_of_database()
         
     def _set_invoices_to_sent(self):
-        for ind, ser in self.credit_df.iterrows():
-            self.cur.execute(
-                    "select invoice_id from invoices inner join users on \
-                    invoices.user_id=users.user_id where \
-                    sent=:sent and \
-                    paid=:paid and users.email=:email and \
-                    invoices.amount_payable=:amount_payable", 
-                    {"sent":False, "paid":False, "email":ser["user_email"], "amount_payable": ser["amount_payable"]}
-                    )
-            invoice_id = self.cur.fetchone()[0]
-            invoice = Invoice(invoice_id=invoice_id, con=self.con)
-            self.cur.execute("update invoices set sent=:sent where invoice_id=:invoice_id", {"sent": True, "invoice_id": invoice_id})
+        for ind, ser in self.invoice_df.iterrows():
+            invoice = Invoice(invoice_id=ser["invoice_id"], con=self.con)
+            self.cur.execute("update invoices set sent=:sent where invoice_id=:invoice_id", {"sent": True, "invoice_id": invoice.invoice_id})
             self.con.commit()
             print(f"Invoice {invoice.invoice_id} ({invoice.reference_text}) set to sent")
         
-    def _check_that_all_invoices_in_credit_input_df_exist_sent(self):
-        for ind, ser in self.credit_df.iterrows():
+    def _check_that_all_invoices_in_invoices_input_df_exist_sent(self):
+        for ind, ser in self.invoice_df.iterrows():
             self.cur.execute(
-                    "select invoice_id from invoices inner join users on \
-                    invoices.user_id=users.user_id where \
+                    "select invoice_id from invoices where \
                     sent=:sent and \
-                    paid=:paid and users.email=:email and \
-                    invoices.amount_payable=:amount_payable", 
-                    {"sent":True, "paid":False, "email":ser["user_email"], "amount_payable": ser["amount_payable"]}
+                    paid=:paid and invoice_id=:invoice_id", 
+                    {"sent":True, "paid":False, "invoice_id":ser["invoice_id"]}
                     )
             invoice_ids = [_[0] for _ in self.cur.fetchall()]
-            if len(invoice_ids) > 1:
-                print(f"More than 1 invoice was found matching email {ser['user_email']} and amount {ser['amount_payable']} that is sent but not paid.")
-                sys.exit("Exiting")
             if len(invoice_ids) == 0:
-                print(f"Cannot find an invoice matching email {ser['user_email']} and amount {ser['amount_payable']} that is sent but not paid.")
-                sys.exit
+                print(f"Cannot find an invoice matching invoice_id {ser['invoice_id']} that is sent but not paid.")
+                sys.exit()
 
-    def _check_that_all_invoices_in_credit_input_df_exist_not_sent(self):
-        for ind, ser in self.credit_df.iterrows():
+    def _check_that_all_invoices_in_invoices_input_df_exist_not_sent(self):
+        # Here the series ser contains the following columns: "user_email", "amount_payable", "invoice_id"
+        for ind, ser in self.invoice_df.iterrows():
+            
             self.cur.execute(
-                    "select invoice_id from invoices inner join users on \
-                    invoices.user_id=users.user_id where \
+                    "select invoice_id from invoices where \
                     sent=:sent and \
-                    paid=:paid and users.email=:email and \
-                    invoices.amount_payable=:amount_payable", 
-                    {"sent":False, "paid":False, "email":ser["user_email"], "amount_payable": ser["amount_payable"]}
+                    paid=:paid and invoice_id=:invoice_id", 
+                    {"sent":False, "paid":False, "invoice_id":ser["invoice_id"]}
                     )
             invoice_ids = [_[0] for _ in self.cur.fetchall()]
-            if len(invoice_ids) > 1:
-                print(f"More than 1 invoice was found matching email {ser['user_email']} and amount {ser['amount_payable']} that is not sent nor paid.")
-                sys.exit("Exiting")
             if len(invoice_ids) == 0:
-                print(f"Cannot find an invoice matching email {ser['user_email']} and amount {ser['amount_payable']} that is not sent nor paid.")
-                sys.exit
+                print(f"Cannot find an invoice matching id {ser['invoice_id']} that is not sent nor paid.")
+                sys.exit()
 
     def _init_create_credit_invoices(self):
         """
@@ -182,7 +158,7 @@ class Invoicing:
         self._init_db()
 
         # Get a dataframe where each row is a credit invoice to be created.
-        self.credit_df = self._do_credit_invoice_csv_qc()
+        self.invoice_df = self._do_invoices_input_csv_qc(required_cols=["user_email", "amount_payable"])
 
         # Make the credit invoices if they don't already exist
         self._make_credit_invoices()
@@ -191,16 +167,28 @@ class Invoicing:
 
         self._output_xlsx_of_database()
 
-    def _do_credit_invoice_csv_qc(self):
+    def _do_invoices_input_csv_qc(self, required_cols):
         c_inv_df = pd.read_csv(self.args.input)
+        # When making a credit invoice we will only require "user_email", "amount_payable"
+        # When setting paid or sent we will require "user_email", "amount_payable", "invoice_id"
+        try:
+            c_inv_df = c_inv_df.loc[:,required_cols]
+            if "invoice_id" in required_cols:
+                if c_inv_df['invoice_id'].isnull().values.any():
+                    self._raise_runtime_error_invoice_input(list_of_columns=required_cols)
+        except:
+            self._raise_runtime_error_invoice_input(list_of_columns=required_cols)
         return c_inv_df
+
+    def _raise_runtime_error_invoice_input(self, list_of_columns):
+        raise RuntimeError(f"Something has gone wrong reading in the invoices input csv\nThe following columns are required: {list_of_columns}")
 
     def _check_all_users_in_input_csv_exist(self):
         # check that all of the user emails are found in the database
         # that are included in users input csv.
         self.cur.execute("SELECT email from users;")
         db_user_emails = [_[0] for _ in self.cur.fetchall()]
-        input_users = self.credit_df["user_email"].to_list()
+        input_users = self.invoice_df["user_email"].to_list()
         missing_users = [_ for _ in input_users if _ not in db_user_emails]
         if missing_users:
             print(
@@ -220,7 +208,7 @@ class Invoicing:
     def _check_credit_invoices_dont_already_exist(self):
         # Check to see that such an invoice doesn't already exist
         # if not create the invoice in the db.
-        for ind, ser in self.credit_df.iterrows():
+        for ind, ser in self.invoice_df.iterrows():
             user_email = ser["user_email"]
             amount = ser["amount_payable"]
             self.cur.execute(
@@ -251,7 +239,7 @@ class Invoicing:
         self._check_credit_invoices_dont_already_exist()
         
         # Create the credit invoice and print confirmation out to the terminal
-        for ind, ser in self.credit_df.iterrows():
+        for ind, ser in self.invoice_df.iterrows():
             user_email = ser["user_email"]
             self.cur.execute(f"select user_id from users where email=:user_email", {"user_email": user_email})
             user_id = self.cur.fetchone()[0]
@@ -339,7 +327,7 @@ class Invoicing:
         """
         Back up the database by simply copying the current invoices.db file into the specified db_backup directory
         """
-        backup_db_path = os.path.join(self.db_backup_dir, f'{self.backup_date_time_str}_db_backup_invoicing.db')
+        backup_db_path = os.path.join(self.args.db_backup_dir, f'{self.backup_date_time_str}_db_backup_invoicing.db')
         print(f"\n\nBacking up invoicing.db to {backup_db_path}")
         shutil.copyfile('invoicing.db', backup_db_path)
 
@@ -408,8 +396,8 @@ class Invoicing:
 
     def _apply_credits_for_user(self):
         """
-        Credits are applied from users pre-paid balances
-        users pre-paid balances. We create a credit_debit object to show that
+        Credits are applied from users pre-paid balances.
+        We create a credit_debit object to show that
         balance has been applied.
         """
         if self.current_invoice.balance > 0:
@@ -1224,6 +1212,10 @@ class Invoicing:
             '--output_dir', action='store', required=False, default='.',
             help='The directory in which the credit invoices will be written. Default is current directory.'
         )
+        create_credit_invoices_parser.add_argument(
+            '--db_backup_dir', action="store", required=False, default="db_backup",
+            help="The directory in which backups of the database are made. Defaults to './db_backup'. A backup is automatically made after every successful run of create_invoices."
+            )
         create_credit_invoices_parser.set_defaults(func=self._init_create_credit_invoices)
 
         # Set invoice as sent
@@ -1234,6 +1226,10 @@ class Invoicing:
             help='Set the sent status of invoices in the database to True.'
             )
         set_invoices_sent.add_argument('--input', help="The .csv file containing the credit invoice details.", required=True)
+        set_invoices_sent.add_argument(
+            '--db_backup_dir', action="store", required=False, default="db_backup",
+            help="The directory in which backups of the database are made. Defaults to './db_backup'. A backup is automatically made after every successful run of create_invoices."
+            )
         set_invoices_sent.set_defaults(func=self._set_invoice_to_sent)
 
         # Set invoice as paid
@@ -1244,6 +1240,10 @@ class Invoicing:
             help='Set the paid status of invoices in the database to True.'
             )
         set_invoices_paid.add_argument('--input', help="The .csv file containing the credit invoice details.", required=True)
+        set_invoices_paid.add_argument(
+            '--db_backup_dir', action="store", required=False, default="db_backup",
+            help="The directory in which backups of the database are made. Defaults to './db_backup'. A backup is automatically made after every successful run of create_invoices."
+            )
         set_invoices_paid.set_defaults(func=self._set_invoices_paid)
 
         # Create new user

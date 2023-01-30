@@ -152,7 +152,7 @@ sequana create_credit_invoices: error: the following arguments are required: --i
 
 The two required inputs are:
 
-- `--input`: Full path to the input csv. This is a csv that is currently called `invoice_input.csv`. It should have 2 columns with headers. The headers are `user_email` and `amount_payable`. The values for these columns must be an email of the user to whom you want to create the credit for and the amount in EURO that should be credited.
+- `--input`: Full path to the input csv. This is a csv that is currently called `invoice_input.csv`. It should have 2 columns with headers. The headers are `user_email` and `amount_payable`. The values for these columns must be an email of the user to whom you want to create the credit for and the amount in EUR that should be credited.
 
 - `--template`: Full path to the credit invoice template. This is currently: `/home/humebc/sequana_admin/invoices/invoice_templates/20220811_SequAna_credit_invoice_template.docx`. This template contains [jinja](https://jinja.palletsprojects.com/en/3.1.x/) fields that will be populated by the python code. If you modify the template you will need to modify the python code equivalently.
 
@@ -168,7 +168,7 @@ optional arguments:
   --input INPUT  The .csv file containing the credit invoice details.
 ```
 
-This subcommand uses the same input file as the `create_credit_invoices` command. The program will look up the invoices according to user and payable amount and set the sent status to True.
+This subcommand also uses an input csv similar to the `create_credit_invoices` command. In this case however, there must be an `invoice_id` column that contains the ID of the invocies to be set to sent (one per row). The program will look up the invoices according to this ID and set the sent status to True.
 
 ## Setting invoices to paid
 Once an invoice has been created it will be populated in the database with attribute 'sent' and 'paid' which will both be set to false. Once you have sent the invoice to the user and user has paid the invoice, you should set the paid status to true in the database. You do this using the `set_invoices_paid` subcommand:
@@ -182,9 +182,9 @@ optional arguments:
   --input INPUT  The .csv file containing the credit invoice details.
 ```
 
-This subcommand uses the same input file as the `create_credit_invoices` command. The program will look up the invoices according to user and payable amount and set the paid status to True.
+This subcommand uses the same input file as the `set_invoices_sent` command. The program will look up the invoices according to ID and set the paid status to True.
 
-Upon setting the paid status of the invoice to True the credit will become available to the user and will be used to pay standard invoices that are created after the credit has become available (not before).
+Upon setting the paid status of a credit invoice to True, the credit will become available to the user and will be used to pay standard invoices that are created after the credit has become available (not before).
 
 ## Making new users
 If a user does not exist in the database for a standard invoice that you are trying to create you will be prompted to enter in the information to create a new user on the command line.
