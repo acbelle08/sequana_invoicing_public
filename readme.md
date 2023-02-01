@@ -132,7 +132,7 @@ There are several arguments to this command that are either required or that you
 
 Example:
 ```
-$ python3 invoicing.py create_invoices --first_month 202210 --last_month 202210 --PPMS_input_staff_hours_csvs /home/humebc/sequana_admin/invoices/invoices/202210/input_csvs/202210_hume.csv,/home/humebc/sequana_admin/invoices/invoices/202210/input_csvs/202210_bell.csv --PPMS_input_consumables_csv /home/humebc/sequana_admin/invoices/invoices/202210/input_csvs/202210_orders.csv --template /home/humebc/sequana_admin/invoices/invoice_templates/20221123_sequana_invoice_template.docx --output_dir ./invoices/202210/invoices --answer_yes
+$ python3 invoicing.py create_invoices --first_month 202210 --last_month 202210 --PPMS_input_staff_hours_csvs /home/humebc/sequana_admin/invoices_public/invoices/202210/input_csvs/202210_hume.csv,/home/humebc/sequana_admin/invoices_public/invoices/202210/input_csvs/202210_bell.csv --PPMS_input_consumables_csv /home/humebc/sequana_admin/invoices_public/invoices/202210/input_csvs/202210_orders.csv --template /home/humebc/sequana_admin/invoices_public/invoice_templates/20221123_sequana_invoice_template.docx --output_dir /home/humebc/sequana_admin/invoices_public/invoices/202210/invoices --answer_yes
 ```
 
 ## Creating credit invoices with invoicing.py 
