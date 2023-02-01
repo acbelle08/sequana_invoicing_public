@@ -870,13 +870,13 @@ class Invoicing:
         # run one: collect the last name values
         self.user_last_names_to_invoice = set()
         for ind in self.hours_charged_df.index:
-            last_name = "_".join(ind.split("_")[:-1]).replace("_", " ")
+            last_name = self._get_last_name_from_project_name(ind)
             if "sequana" not in last_name:
                 self.user_last_names_to_invoice.add(last_name)
         # Include the names in the consumables input sheet to cover the
         # case where we have consumables but no staff costs.    
         for ind, ser in self.consumables_df.iterrows():
-            last_name = "_".join(ser["Project name"].split(":")[0].split("_")[:-1]).replace("_", " ")
+            last_name = self._get_last_name_from_project_name(ser["Project name"])
             if "sequana" not in last_name:
                 self.user_last_names_to_invoice.add(last_name)
         
@@ -903,12 +903,16 @@ class Invoicing:
         if self.user_last_names_to_invoice:
             inds_to_keep = []
             for ind in self.hours_charged_df.index:
-                last_name = "_".join(ind.split("_")[:-1]).replace("_", " ")
+                last_name = self._get_last_name_from_project_name(ind)
                 if last_name in self.user_last_names_to_invoice:
                     inds_to_keep.append(ind)
         self.hours_charged_df = self.hours_charged_df.loc[inds_to_keep,:]
 
         return self.user_last_names_to_invoice
+
+    @staticmethod
+    def _get_last_name_from_project_name(project_string):
+        return "_".join(project_string.split(":")[0].split("_")[:-1]).replace("_", " ")
 
     def _get_n_y_user_response(self, question_text, allow_skip=True):
         try:
@@ -946,7 +950,7 @@ class Invoicing:
 
     def _create_consumable_charge(self, ser):
         # We should be able to get the user, project and invoice  or make them  using the project_info only.
-        last_name = "_".join(ser["Project name"].split(":")[0].split("_")[:-1]).replace("_", " ")
+        last_name = self._get_last_name_from_project_name(ser["Project name"])
         
         # Then we need to create the project and the invoice
         self.current_user = self._get_or_make_user_for_invoicing(user_last_name=last_name)
@@ -996,7 +1000,7 @@ class Invoicing:
     def _project_exists(self, project_name):
         project_title = ":".join(project_name.split(":")[1:]).strip()
         project_type = project_name.split(":")[0].split("_")[-1]
-        last_name = "_".join(project_name.split(":")[0].split("_")[:-1]).replace("_", " ")
+        last_name = self._get_last_name_from_project_name(project_name)
         self.cur.execute("SELECT projects.project_id, projects.user_id FROM projects INNER JOIN users ON projects.user_id = users.user_id WHERE projects.project_title=:project_title AND projects.project_type=:project_type AND users.last_name=:last_name", {"project_title": project_title, "project_type": project_type, "last_name": last_name })
         results = self.cur.fetchall()
         if len(results) == 1:
