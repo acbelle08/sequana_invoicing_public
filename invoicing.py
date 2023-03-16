@@ -168,7 +168,7 @@ class Invoicing:
         self._output_xlsx_of_database()
 
     def _do_invoices_input_csv_qc(self, required_cols):
-        c_inv_df = pd.read_csv(self.args.input)
+        c_inv_df = pd.read_csv(self.args.input, encoding = "ISO-8859-1")
         # When making a credit invoice we will only require "user_email", "amount_payable"
         # When setting paid or sent we will require "user_email", "amount_payable", "invoice_id"
         try:
@@ -937,7 +937,7 @@ class Invoicing:
         if not os.path.exists(self.ppms_consumables_input_csv_path):
             raise FileNotFoundError(f"{self.ppms_consumables_input_csv_path} not found.")
         
-        self.consumables_df = df = pd.read_csv(self.ppms_consumables_input_csv_path)
+        self.consumables_df = df = pd.read_csv(self.ppms_consumables_input_csv_path, encoding = "ISO-8859-1")
         self.consumables_df.drop("Group", axis=1, inplace=True)
         self.consumables_df.drop("User", axis=1, inplace=True)
         
@@ -1023,7 +1023,7 @@ class Invoicing:
         # A dict with year as key and df as value
         year_to_df_dict = {}
         for ppms_path in self.ppms_input_csvs_paths:
-            df = pd.read_csv(ppms_path)
+            df = pd.read_csv(ppms_path, encoding = "ISO-8859-1")
             df.set_index("Project", inplace=True)
             year = list(df)[13].split(" ")[0]
             df.drop(["Type", f"{year} Total"], inplace=True, axis=1)
